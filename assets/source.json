@@ -1,0 +1,18 @@
+{
+  "source": "User-uploaded download.mp4",
+  "source_duration_seconds": 13.972291666666665,
+  "selection_start_seconds": 3.879,
+  "selection_end_seconds": 11.637,
+  "selection_duration_seconds": 7.75775,
+  "fps": 23.976023976023978,
+  "frame_count": 186,
+  "fixed_crop": [
+    0,
+    28,
+    374,
+    226
+  ],
+  "mask": "value-channel threshold over black background, softened at edges",
+  "loop_endpoint_mask_iou": 0.684,
+  "playback_rate": 1.15
+}
