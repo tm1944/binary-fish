@@ -19,34 +19,32 @@ assert.equal(data.sourceFrameStart,0);
 assert.equal(data.sourceFrameEndInclusive,334);
 assert.equal(data.packedChannels,3);
 assert.equal(data.packedWidth,data.width*3);
-assert.equal(data.portalSeconds,1.2);
-assert.equal(data.portalFeather,.15);
 assert.equal(data.scenes.length,1);
 assert.equal(data.transitions.length,0);
 const fish = new scope.window.BinaryFish(canvas);
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8, a+' != '+b);
 for(const rate of [.5,1.15,2]){
   fish.options.swimmingSpeed=rate;
-  const transition=1.2*rate;
-  const last=(data.frameCount-1)/data.fps;
-  for(let time=transition;time<last-transition;time+=.1){
-    assert.equal(fish.sceneAt(time),0);
-    const state=fish.portalAt(time);
-    for(const anatomy of [0,.25,.5,.75,1])near(fish.portalOpacity(anatomy,state),1);
-  }
-  for(const anatomy of [0,.25,.5,.75,1]){
-    near(fish.portalOpacity(anatomy,fish.portalAt(0)),0);
-    near(fish.portalOpacity(anatomy,fish.portalAt(last)),0);
-    near(fish.portalOpacity(anatomy,fish.portalAt(data.duration)),0);
-  }
-  const incoming=fish.portalAt(transition/2);
-  assert.ok(fish.portalOpacity(.1,incoming)>.9,'Head must emerge first');
-  assert.ok(fish.portalOpacity(.9,incoming)<.1,'Trailing fins must remain hidden');
-  const outgoing=fish.portalAt(last-transition/2);
-  assert.ok(fish.portalOpacity(.1,outgoing)<.1,'Head must disappear first');
-  assert.ok(fish.portalOpacity(.9,outgoing)>.9,'Trailing fins must leave last');
-  assert.ok(fish.portalOpacity(.5,incoming)>0&&fish.portalOpacity(.5,incoming)<1,'Boundary must be soft');
+  near(fish.transitionDuration(),1);
 }
+fish.options.transitionDuration=1.5;
+near(fish.transitionDuration(),1.5);
+fish.options.transitionDuration=1;
+const particle={targetX:100,targetY:80,dx:40,dy:30,opacity:.8,
+  entryDelay:.02,entryEnd:.2,fadeStart:.6,fadeEnd:.98};
+const explodeStart=fish.particlePose(particle,0,'exploding');
+const explodeEnd=fish.particlePose(particle,1,'exploding');
+near(explodeStart.x,100);near(explodeStart.y,80);near(explodeStart.alpha,.8);
+near(explodeEnd.x,140);near(explodeEnd.y,110);near(explodeEnd.alpha,0);
+const assembleStart=fish.particlePose(particle,0,'assembling');
+const assembleEnd=fish.particlePose(particle,1,'assembling');
+near(assembleStart.x,140);near(assembleStart.y,110);near(assembleStart.alpha,0);
+near(assembleEnd.x,100);near(assembleEnd.y,80);near(assembleEnd.alpha,.8);
+const quarter=fish.particlePose(particle,.25,'exploding');
+const half=fish.particlePose(particle,.5,'exploding');
+assert.ok(quarter.x-explodeStart.x>half.x-quarter.x,'Particles must decelerate');
+near(half.alpha,.8); // Dispersion precedes the late transparency change.
+assert.ok(fish.particlePose(particle,.8,'exploding').alpha<.8);
 fish.options.swimmingSpeed=1.15;
 for(const [width,height]of [[1440,900],[2560,1440],[768,1024],[390,844],[320,568],[844,390]]){
   fish.resize(width,height,2);
@@ -55,7 +53,7 @@ for(const [width,height]of [[1440,900],[2560,1440],[768,1024],[390,844],[320,568
   for(const s of data.scenes){
     const [x0,y0,x1,y1]=s.bounds;
     assert.ok(x0>=0&&y0>=0&&x1<=data.width&&y1<=data.height&&x1>x0&&y1>y0);
-    fish.draw({width:data.packedWidth,height:data.height},0,(s.start+s.end)/2);
+    fish.layout();
     assert.ok(fish.position.x>=0&&fish.position.y>=0);
     const [a,b,c,d]=fish.sceneBounds;
     const scale=Math.min(fish.targetFish/(c-a),height*.80/(d-b));
@@ -68,4 +66,4 @@ for(const [width,height]of [[1440,900],[2560,1440],[768,1024],[390,844],[320,568
 }
 fish.dispose();
 assert.equal(fish.state,'disposed');
-console.log('Passed full clownfish selection, spatial portal ordering at three rates, stable framing, and six viewport layouts.');
+console.log('Passed full clownfish selection, particle endpoints and deceleration, independent duration, and six viewport layouts.');

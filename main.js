@@ -8,6 +8,7 @@
     characterSize: 6,
     swimmingSpeed: 1.15,
     fishSize: 1280,
+    transitionDuration: 1,
   });
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let suspended = false;

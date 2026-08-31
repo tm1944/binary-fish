@@ -17,36 +17,43 @@ Opening `index.html` directly shows a binary still.
 ## Playback and size
 
 The recording contains all 335 frames at 24000/1001 frames per second,
-about 13.97 seconds. Each pass lasts about 12.15 seconds at 1.15× speed.
-The runtime asset has no audio.
+about 13.97 seconds. Swimming lasts about 12.15 seconds at 1.15× speed.
+The two particle effects add about two seconds to each cycle. The runtime
+asset has no audio.
 
-During the final 1.2 seconds, the fish disappears head first, then body and
-trailing fins. Once it is invisible, playback restarts at the original starting
-position. The opening frame must decode before the same head-first reveal
-begins, lasting 1.2 seconds. A soft boundary spans 15% of the progression mask.
-There is no visible portal ring, global crossfade, or offscreen translation.
-The recorded path and poses repeat.
+After the final video frame, the fish's actual binary glyphs burst outward
+for one second. They keep their shading, remain upright, and become
+transparent near the end. Only when every outgoing particle is invisible
+does the recording return to its starting frame.
+
+The opening frame stays paused while scattered digits gather into its exact
+silhouette for one second. Swimming begins when assembly finishes. The same
+assembly happens on initial loading. The recorded path repeats, without
+portal masking, reversed footage, or added swimming motion.
 
 Stable bounds fit the fish's complete recorded path without following it.
 The swimming area is capped at 1,280 pixels wide and fits within 90% of
 viewport width and 80% of viewport height, preserving its aspect ratio.
 `main.js` configures the area width, speed, violet `#554bc6`, and upright 6-pixel
-characters. Digits change independently at the existing staggered 1.6–2 Hz.
+characters. `transitionDuration` sets each particle effect's duration in
+seconds, independently of `swimmingSpeed`; its default is `1`. Digits change
+independently at the existing staggered 1.6–2 Hz.
 
 The canvas remains fixed behind scrollable `main`, ignores pointer input, and
 is hidden from assistive technologies. No foreground content is included.
 `BinaryFish` retains `resize()`, `play()`, `pause()`, `showPoster()`, and
-`dispose()`. Hidden tabs pause decoding and digit timing. Reduced motion,
+`dispose()`. Hidden tabs pause decoding, particles, and digit timing. Resizing
+preserves particle progress relative to the swimming area. Reduced motion,
 direct-file previews, and playback failure use a centered clownfish still.
 
 ## Reproduce the clownfish assets
 
 The original clownfish upload remains untouched at
 `preparation/source-uploaded.mp4`. Preparation generates synchronized luminance,
-soft silhouette, and anatomy progression planes in one local video. Keeping
-them in the same decoded frame prevents a moving mask from drifting away
-from the fish. The progression mask accounts for the camera-facing opening
-pose so the side fins do not appear before the face.
+soft silhouette, and anatomy progression planes in one local video. The
+renderer now uses only luminance and silhouette. The third plane and its
+portal metadata remain as preparation history and do not affect playback.
+The explosion change requires no video reprocessing.
 
 With Python, numpy, opencv-python, ffmpeg, and ffprobe installed:
 
