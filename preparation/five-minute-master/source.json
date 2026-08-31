@@ -1,0 +1,277 @@
+{
+  "source": "/Users/tallalmohar/Downloads/download1.mp4",
+  "sourceStart": 0,
+  "sourceEnd": 300,
+  "width": 636,
+  "height": 360,
+  "packedWidth": 1272,
+  "fps": 25,
+  "frameCount": 7500,
+  "duration": 300,
+  "posterFrame": 500,
+  "posterBounds": [
+    47,
+    0,
+    636,
+    276
+  ],
+  "scenes": [
+    {
+      "start": 0,
+      "end": 22.28,
+      "bounds": [
+        47,
+        0,
+        636,
+        276
+      ]
+    },
+    {
+      "start": 22.28,
+      "end": 39.739999999999995,
+      "bounds": [
+        0,
+        0,
+        614,
+        323
+      ]
+    },
+    {
+      "start": 39.739999999999995,
+      "end": 47.22,
+      "bounds": [
+        0,
+        5,
+        487,
+        360
+      ]
+    },
+    {
+      "start": 47.22,
+      "end": 61.62,
+      "bounds": [
+        0,
+        0,
+        636,
+        309
+      ]
+    },
+    {
+      "start": 61.62,
+      "end": 69.24000000000001,
+      "bounds": [
+        32,
+        23,
+        438,
+        317
+      ]
+    },
+    {
+      "start": 69.24000000000001,
+      "end": 106.52000000000001,
+      "bounds": [
+        0,
+        8,
+        624,
+        360
+      ]
+    },
+    {
+      "start": 106.52000000000001,
+      "end": 114.18,
+      "bounds": [
+        98,
+        17,
+        555,
+        360
+      ]
+    },
+    {
+      "start": 114.18,
+      "end": 130.06,
+      "bounds": [
+        216,
+        48,
+        434,
+        310
+      ]
+    },
+    {
+      "start": 130.06,
+      "end": 137.8,
+      "bounds": [
+        240,
+        63,
+        465,
+        322
+      ]
+    },
+    {
+      "start": 137.8,
+      "end": 150.7,
+      "bounds": [
+        16,
+        0,
+        616,
+        360
+      ]
+    },
+    {
+      "start": 150.7,
+      "end": 180.7,
+      "bounds": [
+        0,
+        0,
+        636,
+        352
+      ]
+    },
+    {
+      "start": 180.7,
+      "end": 188.32,
+      "bounds": [
+        46,
+        17,
+        574,
+        350
+      ]
+    },
+    {
+      "start": 188.32,
+      "end": 227.04000000000002,
+      "bounds": [
+        0,
+        0,
+        636,
+        240
+      ]
+    },
+    {
+      "start": 227.04000000000002,
+      "end": 234.76,
+      "bounds": [
+        36,
+        43,
+        512,
+        360
+      ]
+    },
+    {
+      "start": 234.76,
+      "end": 271.28,
+      "bounds": [
+        37,
+        0,
+        636,
+        221
+      ]
+    },
+    {
+      "start": 271.28,
+      "end": 278.78,
+      "bounds": [
+        71,
+        0,
+        579,
+        340
+      ]
+    },
+    {
+      "start": 278.78,
+      "end": 286.18,
+      "bounds": [
+        41,
+        2,
+        636,
+        353
+      ]
+    },
+    {
+      "start": 286.18,
+      "end": 300,
+      "bounds": [
+        110,
+        0,
+        379,
+        213
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "start": 21.6,
+      "end": 22.96
+    },
+    {
+      "start": 39.16,
+      "end": 40.32
+    },
+    {
+      "start": 46.6,
+      "end": 47.84
+    },
+    {
+      "start": 61.12,
+      "end": 62.12
+    },
+    {
+      "start": 68.68,
+      "end": 69.8
+    },
+    {
+      "start": 106,
+      "end": 107.04
+    },
+    {
+      "start": 113.6,
+      "end": 114.76
+    },
+    {
+      "start": 129.36,
+      "end": 130.76
+    },
+    {
+      "start": 137.16,
+      "end": 138.44
+    },
+    {
+      "start": 150.16,
+      "end": 151.24
+    },
+    {
+      "start": 180.16,
+      "end": 181.24
+    },
+    {
+      "start": 187.68,
+      "end": 188.96
+    },
+    {
+      "start": 226.36,
+      "end": 227.72
+    },
+    {
+      "start": 234.08,
+      "end": 235.44
+    },
+    {
+      "start": 270.64,
+      "end": 271.92
+    },
+    {
+      "start": 278.12,
+      "end": 279.44
+    },
+    {
+      "start": 285.64,
+      "end": 286.72
+    }
+  ],
+  "fadeSeconds": 0.6,
+  "playbackRate": 1.15,
+  "loop": "fade-through-white",
+  "mask": "All components, soft value threshold 18\u201338, 0.45px smoothing; enclosed dark areas opaque; remove tiny noise and separable waterline streaks; black-fish scene uses threshold 8 and 27px elliptical closing to connect silhouette gaps",
+  "emptyFrames": 2,
+  "sourceLimitations": "Some fish reach the recording edge. Pixels absent from the original cannot be recovered.",
+  "cleanup": "Remove reviewed surface-reflection strip in rows 0\u20138; reject small components farther than 12px from fish"
+}

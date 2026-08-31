@@ -1,0 +1,13 @@
+The active source is source-uploaded.mp4, preserved from the user's download.mp4.
+All 335 video frames are used at the original 24000/1001 fps. Audio is omitted.
+Run prepare_clownfish.py to rebuild the grayscale, silhouette, progression,
+metadata, and poster assets. The original upload is never overwritten.
+
+The earlier five-minute master from download1.mp4 remains in five-minute-master/.
+That Downloads upload is no longer present at its recorded path.
+prepare.py and cleanup_mask.py document its preparation, and scenes.json records
+its scene changes. select_single_fish.py rebuilds the previous opening excerpt
+from the master, replacing the active runtime assets if explicitly run.
+
+Neither source recording is loaded by the website. Confirm reuse rights before
+publication. The site is a local preview only.

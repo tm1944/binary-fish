@@ -1,12 +1,13 @@
-// Staged integration. The live site keeps its existing renderer until media is ready.
+// A fixed decorative background; page scrolling never drives playback.
 (() => {
   'use strict';
 
   const canvas = document.getElementById('fish');
   const fish = new window.BinaryFish(canvas, {
     color: '#554bc6',
-    characterSize: 10,
+    characterSize: 6,
     swimmingSpeed: 1.15,
+    fishSize: 1280,
   });
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let suspended = false;
@@ -35,9 +36,16 @@
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', syncPlayback);
   reducedMotion.addEventListener('change', syncPlayback);
-  window.addEventListener('pagehide', () => {
+  window.addEventListener('pagehide', event => {
     suspended = true;
     fish.pause();
+    if (!event.persisted) {
+      observer.disconnect();
+      window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', syncPlayback);
+      reducedMotion.removeEventListener('change', syncPlayback);
+      fish.dispose();
+    }
   });
   window.addEventListener('pageshow', () => {
     suspended = false;

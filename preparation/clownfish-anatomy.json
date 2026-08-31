@@ -1,0 +1,26 @@
+{
+  "coordinates": "Source pixels, 480 by 360. Nose center and tail-fin center were annotated on the opening and closing poses. Values between keys interpolate linearly.",
+  "opening": [
+    {"frame": 0, "nose": [324, 197], "tail": [346, 117]},
+    {"frame": 12, "nose": [320, 194], "tail": [351, 113]},
+    {"frame": 24, "nose": [313, 195], "tail": [346, 108]},
+    {"frame": 36, "nose": [309, 195], "tail": [351, 103]},
+    {"frame": 48, "nose": [253, 198], "tail": [294, 117]},
+    {"frame": 60, "nose": [203, 192], "tail": [368, 159]},
+    {"frame": 72, "nose": [144, 179], "tail": [306, 171]},
+    {"frame": 84, "nose": [82, 189], "tail": [261, 162]},
+    {"frame": 90, "nose": [55, 191], "tail": [232, 167]}
+  ],
+  "closing": [
+    {"frame": 248, "nose": [151, 139], "tail": [339, 135]},
+    {"frame": 260, "nose": [110, 156], "tail": [244, 132]},
+    {"frame": 272, "nose": [78, 179], "tail": [204, 146]},
+    {"frame": 284, "nose": [115, 181], "tail": [153, 134]},
+    {"frame": 298, "nose": [280, 167], "tail": [61, 158]},
+    {"frame": 301, "nose": [287, 174], "tail": [71, 163]},
+    {"frame": 312, "nose": [308, 182], "tail": [102, 153]},
+    {"frame": 324, "nose": [334, 202], "tail": [137, 150]},
+    {"frame": 334, "nose": [349, 215], "tail": [162, 139]}
+  ],
+  "method": "Opening head uses an ellipse, then longitudinal body ordering. Side fins outside the head/body core are delayed until 68–92% progression; pelvic fins until 90–98%. Closing uses continuous nose-to-tail projection: attached dorsal and lower fins disappear with their adjacent body; the trailing tail disappears last. Extra keyframes cover portal poses at supported playback rates through3x. This is an authored spatial reveal map, not recovered depth or synthesized fish movement."
+}

@@ -1,0 +1,76 @@
+{
+  "source": "download1.mp4",
+  "duration": 300,
+  "fps": 25,
+  "verification": "Visually inspected candidate contact sheets at 0.2-second spacing. Conservative intervals cover dimming and all blended poses. 277.12 is a turn, not a cut. Two-fish shots at 69.8–106 and 181.24–187.68 are retained.",
+  "transitions": [
+    {
+      "start": 21.6,
+      "end": 22.96
+    },
+    {
+      "start": 39.16,
+      "end": 40.32
+    },
+    {
+      "start": 46.6,
+      "end": 47.84
+    },
+    {
+      "start": 61.12,
+      "end": 62.12
+    },
+    {
+      "start": 68.68,
+      "end": 69.8
+    },
+    {
+      "start": 106,
+      "end": 107.04
+    },
+    {
+      "start": 113.6,
+      "end": 114.76
+    },
+    {
+      "start": 129.36,
+      "end": 130.76
+    },
+    {
+      "start": 137.16,
+      "end": 138.44
+    },
+    {
+      "start": 150.16,
+      "end": 151.24
+    },
+    {
+      "start": 180.16,
+      "end": 181.24
+    },
+    {
+      "start": 187.68,
+      "end": 188.96
+    },
+    {
+      "start": 226.36,
+      "end": 227.72
+    },
+    {
+      "start": 234.08,
+      "end": 235.44
+    },
+    {
+      "start": 270.64,
+      "end": 271.92
+    },
+    {
+      "start": 278.12,
+      "end": 279.44
+    },
+    {
+      "start": 285.64,
+      "end": 286.72
+    }
+  ]
+}
