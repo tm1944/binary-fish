@@ -1,67 +1,61 @@
-# One fish in binary
+# A personal page in blue ink
 
-The original clownfish swims as violet binary characters on white. The entire
-uploaded clip plays in order, preserving its turns, body shading, and fin motion.
-There are no extra fish or added wandering.
+A centered personal page with a fixed binary clownfish behind it. Original
+footage supplies every pose, turn, body shadow, and fin movement. The content
+panels use an 88% white veil, so violet digits show through softly.
 
 ## Preview
 
 ```sh
-cd binary-fish
+cd /Users/tallalmohar/Documents/Codex/2026-08-30/p/outputs/fish-site
 python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
-Open [the website](http://127.0.0.1:4173/), or refresh the existing preview.
-Opening `index.html` directly shows a binary still.
+Open [the website](http://127.0.0.1:4173/). Opening `index.html` directly shows
+a binary still; animated video needs a local server.
+
+## Make it yours
+
+Edit `index.html` to update the introduction, projects, and contact details as
+your work changes. The page title and meta description are near the top. The
+About, Work, Contact, and Back to top links navigate within the page.
+
+The 560-pixel column stays centered with at least 24 pixels on either side on
+phones. The canvas is a pointer-free, fixed background so content can scroll
+and remain accessible above it.
 
 ## Playback and size
 
-The recording contains all 335 frames at 24000/1001 frames per second,
-about 13.97 seconds. Swimming lasts about 12.15 seconds at 1.15× speed.
-The two particle effects add about two seconds to each cycle. The runtime
-asset has no audio.
+The recording contains all 335 frames at 24000/1001 frames per second, about
+13.97 seconds. It plays at 1.15× speed, so the video portion lasts about 12.15
+seconds. The complete first-frame fish starts 24 pixels beyond the right edge.
+It enters only through the movement recorded in the footage: the renderer never
+slides, recenters, chases, or holds it in place.
 
-After the final video frame, the fish's actual binary glyphs burst outward
-for one second. Those particles stay visible, then travel along gentle curves
-for one second to form the next fish at its original starting position.
-There is no blank gap or separate incoming cloud. The first appearance still
-uses the original scattered-digit assembly.
+At the final video frame, its visible binary digits burst outward for one
+second. Each particle fades fully to transparent during the burst. Only after
+the canvas is blank does the renderer seek and decode frame zero, then start
+the next pass naturally offscreen. The short blank decode interval is
+intentional. There is no incoming particle cloud or added entrance motion.
 
-The opening pose is cached during initial loading. Playback seeks to that
-frame during the burst and stays paused while particles gather. If decoding
-is delayed, the cloud remains visible with gentle movement until it is ready.
-Swimming begins when the particles have reached the opening silhouette.
+Stable bounds fit the recorded path without following the fish. The swimming
+area is capped at 1,280 pixels wide and fits within 90% of viewport width and
+80% of viewport height. `main.js` configures violet `#554bc6`, upright 6-pixel
+characters, fish size, playback speed, and `transitionDuration`. Digit changes
+use a separate staggered clock from movement.
 
-The final pose has more glyphs than the opening pose. Surplus particles merge
-into shared destinations with combined opacity, avoiding dark clumps. Their
-values and shading settle into the opening frame before playback resumes.
-The recorded path repeats without added swimming motion.
-
-Stable bounds fit the fish's complete recorded path without following it.
-The swimming area is capped at 1,280 pixels wide and fits within 90% of
-viewport width and 80% of viewport height, preserving its aspect ratio.
-`main.js` configures the area width, speed, violet `#554bc6`, and upright 6-pixel
-characters. `transitionDuration` sets each particle effect's duration in
-seconds, independently of `swimmingSpeed`; its default is `1`. Digits change
-independently at the existing staggered 1.6–2 Hz.
-
-The canvas remains fixed behind scrollable `main`, ignores pointer input, and
-is hidden from assistive technologies. No foreground content is included.
 `BinaryFish` retains `resize()`, `play()`, `pause()`, `showPoster()`, and
-`dispose()`. Hidden tabs pause decoding, particles, and digit timing. Resizing
-preserves particle positions, identities, and progress while remapping their
-destinations. Any extra particles needed for a larger layout originate from
-existing particles. Reduced motion,
-direct-file previews, and playback failure use a centered clownfish still.
+`dispose()`. Hidden tabs pause decoding, particles, and digit timing. Reduced
+motion, direct-file previews, and playback failures show a right-positioned
+clownfish still.
 
 ## Reproduce the clownfish assets
 
 The original clownfish upload remains untouched at
-`preparation/source-uploaded.mp4`. Preparation generates synchronized luminance,
-soft silhouette, and anatomy progression planes in one local video. The
-renderer now uses only luminance and silhouette. The third plane and its
-portal metadata remain as preparation history and do not affect playback.
-The explosion change requires no video reprocessing.
+`preparation/source-uploaded.mp4`. Preparation generates synchronized
+luminance, soft silhouette, and anatomy-progression planes in one local video.
+The renderer uses luminance and silhouette; the third plane remains preparation
+history and does not affect playback. This update requires no asset reprocessing.
 
 With Python, numpy, opencv-python, ffmpeg, and ffprobe installed:
 
@@ -70,13 +64,8 @@ python3 preparation/prepare_clownfish.py
 node tests/placement.cjs
 ```
 
-The script regenerates the runtime video, metadata, and embedded poster.
-The public renderer API and page layout remain unchanged.
-
-The five-minute recording and metadata remain in `preparation/five-minute-master/`.
-They are not loaded by the website. `prepare.py`, `cleanup_mask.py`, and
-`select_single_fish.py` document that older footage workflow. Running the
-selection script replaces the active clownfish with the old selected excerpt.
-
-Some fin detail was already outside the source frame and cannot be recovered.
-This remains a local preview. Confirm footage reuse permission before publishing.
+The five-minute recording and its metadata remain in
+`preparation/five-minute-master/` as reference material and are not loaded by
+the website. Some fin detail was already outside the source frame and cannot be
+recovered. This remains a local preview; confirm footage reuse permission before
+publishing.

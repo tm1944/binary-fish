@@ -19,9 +19,9 @@
       this.decodedContext = this.decodedCanvas.getContext('2d');
       this.openingCanvas = document.createElement('canvas');
       this.outgoingFrameCanvas = document.createElement('canvas');
-      this.openingReady = this.openingSeekPending = false;
+      this.openingSeekPending = false;
       this.openingGlyphs = [];
-      this.nextParticleId = this.waitElapsed = 0;
+      this.nextParticleId = 0;
       this.mode = this.state = this.phase = 'poster';
       this.disposed = this.wantsPlayback = this.hasDecodedFrame = this.restarting = false;
       this.generation = this.passCount = this.bitTime = this.mediaTime = this.poseRevision = 0;
@@ -43,10 +43,7 @@
 
     resize(width, height, pixelRatio = 1) {
       if (this.disposed) return;
-      const connected = ['exploding','waiting-opening','reforming'].includes(this.phase);
-      const oldLayout = connected ? this.layout() : null;
-      const oldWidth = this.width, oldHeight = this.height;
-      const poses = connected ? this.particles.map(p => ({...this.particlePose(p),...this.particleVelocity(p)})) : null;
+      const exploding = this.phase === 'exploding';
       this.width = Math.max(1, width); this.height = Math.max(1, height);
       this.pixelRatio = clamp(pixelRatio, 1, 2);
       this.canvas.width = Math.round(this.width * this.pixelRatio);
@@ -56,15 +53,9 @@
       this.cellWidth = this.fontSize * .62; this.cellHeight = this.fontSize * 1.02;
       this.targetFish = Math.min(this.options.fishSize, this.width * .90);
       this.layoutRevision = (this.layoutRevision || 0)+1;
-      if (connected) {
-        this.resizeConnectedParticles(poses,oldLayout,oldWidth,oldHeight);
-      } else if (this.hasDecodedFrame && (this.phase === 'assembling'
-          || (this.phase === 'swimming' && this.handoffFrame === this.frameAt(this.decodedTime)))) {
-        // Keep six-pixel density after a large resize. The held source pose,
-        // transition clock, and progress remain unchanged while targets regrid.
-        if (this.phase === 'assembling') this.captureParticles();
-        else this.handoffGlyphs = this.sampleGlyphs(this.openingCanvas);
-      }
+      // Particle positions live in source space, so resizing preserves their
+      // identity and progress without remapping them through a screen offset.
+      if (exploding) this.particleCount = this.particles.length;
       this.renderCurrent();
     }
 
@@ -72,6 +63,7 @@
       this.context.globalAlpha = 1;
       this.context.clearRect(0, 0, this.width, this.height);
       this.drawnGlyphs = 0;
+      this.visibleGlyphs = 0;
       this.bounds = { left: this.width / 2, top: this.height / 2,
         right: this.width / 2, bottom: this.height / 2 };
     }
@@ -83,18 +75,20 @@
       const x1 = clamp(box[2]+pad, x0+1, data.width), y1 = clamp(box[3]+pad, y0+1, data.height);
       const srcW = x1-x0, srcH = y1-y0;
       const scale = Math.min(this.targetFish/srcW, this.height*.80/srcH);
-      let originX = (this.width-srcW*scale)/2, originY = (this.height-srcH*scale)/2;
-      if (poster && data.posterFishBounds) {
-        const b = data.posterFishBounds;
-        originX += ((x0+x1)-(b[0]+b[2]))*.5*scale;
-        originY += ((y0+y1)-(b[1]+b[3]))*.5*scale;
-      }
+      const firstFish = data.frameBounds[0];
+      const originX = this.width+24-firstFish[0]*scale, originY = (this.height-srcH*scale)/2;
       this.sceneIndex = 0;
       this.sceneBounds = [x0,y0,x1,y1];
       this.swimmingBounds = { left: originX, top: originY,
         right: originX+srcW*scale, bottom: originY+srcH*scale };
       this.position = { x: originX, y: originY, phase: this.phase };
       return { x0,y0,srcW,srcH,scale,originX,originY };
+    }
+
+    screenPose(pose,poster = false) {
+      const l = this.layout(poster);
+      return {x:l.originX+(pose.x-l.x0)*l.scale,
+        y:l.originY+(pose.y-l.y0)*l.scale,alpha:pose.alpha,seed:pose.seed};
     }
 
     sampleGlyphs(source, poster = false) {
@@ -155,48 +149,29 @@
       if (phase === 'exploding') {
         const u = clamp((q-(p.burstSegmentStart || 0))/(1-(p.burstSegmentStart || 0)),0,1);
         const e = 1-Math.pow(1-u,3);
+        const fade = 1-clamp((q-p.fadeStart)/(p.fadeEnd-p.fadeStart),0,1);
         return { x:p.burstStartX+(p.burstEndX-p.burstStartX)*e,
-          y:p.burstStartY+(p.burstEndY-p.burstStartY)*e, alpha:p.currentOpacity, seed:p.segmentSeed };
+          y:p.burstStartY+(p.burstEndY-p.burstStartY)*e,
+          alpha:p.currentOpacity*fade, seed:p.segmentSeed };
       }
-      if (phase === 'waiting-opening') {
-        const w = this.waitElapsed;
-        const sway = (1-Math.cos(w*1.1))*.5;
-        const point = this.constrainPoint(p.waitX+p.driftX*sway,p.waitY+p.driftY*sway);
-        return { ...point,alpha:p.currentOpacity,seed:p.segmentSeed };
-      }
-      if (phase === 'reforming') {
-        const u = clamp((q-(p.reformSegmentStart || 0))/(1-(p.reformSegmentStart || 0)),0,1);
-        const v = 1-u;
-        const weights = [v**4,4*v**3*u,6*v*v*u*u,4*v*u**3,u**4];
-        const x = weights[0]*p.pathStartX+weights[1]*p.control1X+weights[2]*p.control2X
-          +(weights[3]+weights[4])*p.destinationX;
-        const y = weights[0]*p.pathStartY+weights[1]*p.control1Y+weights[2]*p.control2Y
-          +(weights[3]+weights[4])*p.destinationY;
-        const blend = u*u*(3-2*u);
-        return { x,y,alpha:p.currentOpacity*(1-blend)+p.targetOpacityShare*blend,
-          seed:u > .25+(p.id%97)/194 ? p.targetSeed : p.segmentSeed };
-      }
-      const assembling = phase === 'assembling';
-      const displacement = assembling ? Math.pow(1-q,3) : 1-Math.pow(1-q,3);
-      const alpha = assembling
-        ? clamp((q-p.entryDelay)/(p.entryEnd-p.entryDelay),0,1)
-        : 1-clamp((q-p.fadeStart)/(p.fadeEnd-p.fadeStart),0,1);
-      return { x:p.targetX+p.dx*displacement, y:p.targetY+p.dy*displacement, alpha:p.opacity*alpha,seed:p.seed };
+      return {x:p.targetX,y:p.targetY,alpha:p.opacity,seed:p.seed};
     }
 
     constrainPoint(x,y) {
       const l = this.layout();
-      const marginX = this.cellWidth/2+1, marginY = this.cellHeight/2+1;
-      return { x:clamp(x,l.x0+(marginX-l.originX)/l.scale,l.x0+(this.width-marginX-l.originX)/l.scale),
+      const marginY = this.cellHeight/2+1;
+      // Horizontal coordinates may intentionally be outside the viewport.
+      // Only the vertical path is constrained during offscreen travel.
+      return { x,
         y:clamp(y,l.y0+(marginY-l.originY)/l.scale,l.y0+(this.height-marginY-l.originY)/l.scale) };
     }
 
     burstEndpoint(x,y,dx,dy,seed) {
       const l = this.layout();
       const marginX = this.cellWidth/2+1, marginY = this.cellHeight/2+1;
-      const left = l.x0+(marginX-l.originX)/l.scale, right = l.x0+(this.width-marginX-l.originX)/l.scale;
+      const left = l.x0+(marginX-l.originX)/l.scale;
       const top = l.y0+(marginY-l.originY)/l.scale, bottom = l.y0+(this.height-marginY-l.originY)/l.scale;
-      const tx = dx > 0 ? (right-x)/dx : dx < 0 ? (left-x)/dx : Infinity;
+      const tx = dx < 0 ? (left-x)/dx : Infinity;
       const ty = dy > 0 ? (bottom-y)/dy : dy < 0 ? (top-y)/dy : Infinity;
       const room = Math.max(0,Math.min(tx,ty));
       // Compress the distance along its original ray. Varied soft capacity
@@ -207,8 +182,7 @@
     }
 
     particleVelocity(p) {
-      if (this.phase === 'waiting-opening') return {
-        vx:p.driftX*.55*Math.sin(this.waitElapsed*1.1), vy:p.driftY*.55*Math.sin(this.waitElapsed*1.1) };
+      if (this.phase === 'waiting-opening') return {vx:0,vy:0};
       const q = this.transitionProgress, next = Math.min(1,q+.0001);
       if (next === q) return {vx:0,vy:0};
       const a = this.particlePose(p,q), b = this.particlePose(p,next);
@@ -278,7 +252,7 @@
     resizeConnectedParticles(poses,old,oldWidth,oldHeight) {
       const l = this.layout();
       const remap = point => this.constrainPoint(
-        l.x0+(((old.originX+(point.x-old.x0)*old.scale)/oldWidth)*this.width-l.originX)/l.scale,
+        l.x0+(((old.originX+old.translationX+(point.x-old.x0)*old.scale)/oldWidth)*this.width-l.originX-l.translationX)/l.scale,
         l.y0+(((old.originY+(point.y-old.y0)*old.scale)/oldHeight)*this.height-l.originY)/l.scale);
       const factorX = old.scale/l.scale*this.width/oldWidth, factorY = old.scale/l.scale*this.height/oldHeight;
       const mapped = poses.map(p => ({...p,...remap(p),vx:p.vx*factorX,vy:p.vy*factorY}));
@@ -304,7 +278,7 @@
       ctx.font = `500 ${this.fontSize}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
-      const connected = particles && this.phase !== 'assembling';
+      const connected = particles;
       const entries = connected ? new Map() : null;
       const paint = (pose,seed) => {
         if (pose.alpha < (connected?.0001:.04)) return;
@@ -315,6 +289,8 @@
         ctx.globalAlpha = pose.alpha;
         ctx.fillText(((hash^hash>>>16)&1)?'1':'0',x,y);
         this.drawnGlyphs++;
+        if (x+this.cellWidth/2 > 0 && x-this.cellWidth/2 < this.width
+            && y+this.cellHeight/2 > 0 && y-this.cellHeight/2 < this.height) this.visibleGlyphs++;
         left = Math.min(left,x-this.cellWidth/2); right = Math.max(right,x+this.cellWidth/2);
         top = Math.min(top,y-this.cellHeight/2); bottom = Math.max(bottom,y+this.cellHeight/2);
       };
@@ -324,10 +300,7 @@
         else {
           // Split descendants and merged destinations can coincide exactly.
           // Composite their opacity once, keeping antialiased glyph edges clean.
-          const converged = this.phase === 'reforming' && this.transitionProgress > .8
-            && Math.hypot(pose.x-p.destinationX,pose.y-p.destinationY)*l.scale < .15;
-          const key = converged ? `destination:${p.groupId}`
-            : `${Math.round(pose.x*10000)},${Math.round(pose.y*10000)},${pose.seed}`;
+          const key = `${Math.round(pose.x*10000)},${Math.round(pose.y*10000)},${pose.seed}`;
           const previous = entries.get(key);
           if (previous) {
             const weight = previous.weight+pose.alpha;
@@ -349,19 +322,14 @@
         if (this.mode === 'poster') {
           if (this.poster.complete && this.poster.naturalWidth) this.paintGlyphs(this.sampleGlyphs(this.poster,true),false,true);
           else this.clear();
-        } else if (['assembling','exploding','waiting-opening','reforming'].includes(this.phase)) {
-          if (this.phase === 'reforming' && this.transitionProgress >= 1) this.paintGlyphs(this.openingGlyphs);
-          else this.paintGlyphs(this.particles,true);
+        } else if (this.phase === 'exploding') {
+          this.paintGlyphs(this.particles,true);
         } else if (this.phase === 'swimming' && this.hasDecodedFrame) {
-          // Retain the assembled grid until the footage actually advances.
-          if (this.handoffFrame === this.frameAt(this.decodedTime)) this.paintGlyphs(this.handoffGlyphs || this.particles);
-          else {
-            if (this.glyphCacheRevision !== this.poseRevision || this.glyphCacheLayout !== this.layoutRevision) {
-              this.glyphCache = this.sampleGlyphs(this.decodedCanvas);
-              this.glyphCacheRevision = this.poseRevision; this.glyphCacheLayout = this.layoutRevision;
-            }
-            this.paintGlyphs(this.glyphCache);
+          if (this.glyphCacheRevision !== this.poseRevision || this.glyphCacheLayout !== this.layoutRevision) {
+            this.glyphCache = this.sampleGlyphs(this.decodedCanvas);
+            this.glyphCacheRevision = this.poseRevision; this.glyphCacheLayout = this.layoutRevision;
           }
+          this.paintGlyphs(this.glyphCache);
         } else this.clear();
       } catch (_) { if (this.mode !== 'poster') this.fail(); }
     }
@@ -485,10 +453,7 @@
       const ready = await this.decodeHeldFrame(0);
       if (generation !== this.generation || !this.wantsPlayback || this.disposed) return false;
       if (!ready) { this.fail(); return false; }
-      this.copyFrame(this.decodedCanvas,this.openingCanvas);
-      this.openingReady = true;
-      this.beginTransition('assembling');
-      return true;
+      return this.startSwimming();
     }
 
     beginTransition(phase) {
@@ -502,15 +467,12 @@
           p.burstEndX = end.x; p.burstEndY = end.y; p.burstSegmentStart = 0;
           p.currentOpacity = p.opacity; p.segmentSeed = p.seed;
         }
-        this.mapOpeningTargets(this.particles.map(p => ({x:p.targetX,y:p.targetY,alpha:p.opacity,seed:p.seed})));
-        this.openingReady = false;
       }
       this.phase = phase;
       this.transitionElapsed = this.transitionProgress = 0;
       this.lastClock = null;
       this.state = 'playing'; this.mode = 'video';
       this.renderCurrent(); this.schedule();
-      if (phase === 'exploding') this.prepareNextOpening();
     }
 
     copyFrame(source,destination) {
@@ -518,47 +480,17 @@
       destination.getContext('2d').drawImage(source,0,0);
     }
 
-    async prepareNextOpening() {
-      if (this.openingSeekPending || this.openingReady || !this.wantsPlayback) return;
-      const generation = this.generation;
-      this.openingSeekPending = true;
-      const ready = await this.decodeHeldFrame(0);
-      if (generation !== this.generation || !this.wantsPlayback || this.disposed) return;
-      this.openingSeekPending = false;
-      if (!ready) { this.fail(); return; }
-      this.openingReady = true;
-      if (this.phase === 'waiting-opening') this.beginReforming();
-    }
-
-    beginReforming() {
-      const poses = this.particles.map(p => ({...this.particlePose(p),...this.particleVelocity(p)}));
-      this.setReformPaths(poses);
-      this.phase = 'reforming';
-      this.transitionElapsed = this.transitionProgress = 0;
-      this.lastClock = null;
-      this.renderCurrent(); this.schedule();
-    }
-
     finishBurst() {
-      if (this.openingReady) { this.beginReforming(); return; }
-      const l = this.layout();
-      for (const p of this.particles) {
-        p.waitX = p.burstEndX; p.waitY = p.burstEndY;
-        const angle = p.id*2.39996323;
-        p.driftX = Math.cos(angle)*8/l.scale;
-        p.driftY = Math.sin(angle)*8/l.scale;
-      }
-      this.phase = 'waiting-opening'; this.waitElapsed = 0;
-      this.renderCurrent();
+      // Do not seek until every outgoing digit has faded. The next frame-zero
+      // fish is decoded while the canvas is intentionally blank.
+      this.passCount++;
+      this.particles = []; this.particleCount = 0;
+      this.loadOpening();
     }
 
     async startSwimming() {
       const generation = this.generation, video = this.video;
-      if (this.phase === 'assembling' || this.phase === 'reforming') {
-        this.handoffFrame = this.frameAt(this.decodedTime);
-        this.handoffRevision = this.poseRevision;
-        this.handoffGlyphs = this.phase === 'assembling' ? this.particles : this.openingGlyphs;
-      }
+      this.handoffFrame = null; this.handoffGlyphs = null;
       this.phase = 'swimming'; this.state = 'playing';
       video.playbackRate = this.swimRate();
       this.scheduleDecode();
@@ -597,8 +529,7 @@
       this.wantsPlayback = true; this.generation++;
       if (!this.video) this.createVideo();
       this.mode = 'video'; this.state = 'playing'; this.lastClock = null;
-      if (['assembling','exploding','waiting-opening','reforming'].includes(this.phase)) {
-        if (this.phase !== 'assembling' && !this.openingReady) this.prepareNextOpening();
+      if (this.phase === 'exploding') {
         this.schedule(); return true;
       }
       if (this.phase === 'swimming') {
@@ -616,18 +547,11 @@
         if (document.hidden) { this.pause(); return; }
         const dt = this.lastClock === null ? 0 : Math.max(0,(now-this.lastClock)/1000);
         this.lastClock = now; this.bitTime += dt;
-        if (['assembling','exploding','reforming'].includes(this.phase)) {
+        if (this.phase === 'exploding') {
           this.transitionElapsed = Math.min(this.transitionDuration(),this.transitionElapsed+dt);
           this.transitionProgress = this.transitionElapsed/this.transitionDuration();
           this.renderCurrent();
-          if (this.transitionProgress >= 1) {
-            if (this.phase === 'assembling') this.startSwimming();
-            else if (this.phase === 'exploding') this.finishBurst();
-            else { this.passCount++; this.startSwimming(); }
-          }
-        } else if (this.phase === 'waiting-opening') {
-          this.waitElapsed += dt;
-          this.renderCurrent();
+          if (this.transitionProgress >= 1) this.finishBurst();
         } else if (this.phase === 'swimming') {
           if (!this.video.requestVideoFrameCallback && !this.video.seeking && !this.video.paused) {
             this.acceptFrame(this.video.currentTime);

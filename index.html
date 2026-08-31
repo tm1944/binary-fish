@@ -4,16 +4,94 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#ffffff">
-    <meta name="description" content="A quiet little fish, swimming in binary.">
-    <title>Binary fish</title>
+    <meta name="description" content="Tallal Mohar is a computer science student and software engineering intern automating AI agents in production.">
+    <title>Tallal Mohar · Software engineer</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
     <script src="assets/fish-data.js" defer></script>
     <script src="fish.js" defer></script>
     <script src="main.js" defer></script>
   </head>
-  <body>
+  <body id="top">
+    <a class="skip-link" href="#main">Skip to content</a>
     <canvas id="fish" aria-hidden="true"></canvas>
-    <main><!-- Personal-site content can go here. --></main>
+    <main class="page" id="main" tabindex="-1">
+      <header class="page-header paper">
+        <span class="eyebrow">Tallal Mohar</span>
+        <nav aria-label="On this page">
+          <a href="#about">About</a>
+          <a href="#work">Work</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </header>
+
+      <section class="intro paper" id="about" aria-labelledby="name">
+        <p class="eyebrow section-note">A little introduction</p>
+        <h1 id="name">Tallal Mohar.</h1>
+        <p class="intro-copy">I’m a computer science student at Simon Fraser University and a <strong>software engineering intern</strong> at Planview. I work on automating AI agents in production and building the workflows that help teams operate them reliably.</p>
+        <p class="editing-note">Vancouver, BC · graduating December 2027</p>
+      </section>
+
+      <section class="work paper" id="work" aria-labelledby="work-title">
+        <div class="section-heading">
+          <h2 id="work-title">Work experience</h2>
+          <span class="eyebrow">01 — 02</span>
+        </div>
+        <article class="project" aria-labelledby="project-one">
+          <span class="project-number" aria-hidden="true">01</span>
+          <div>
+            <h3 id="project-one">Planview · Software Engineering Intern</h3>
+            <p>Automating AI-agent workflows in production, improving onboarding and code review, and building OpenTelemetry observability across cloud and platform environments.</p>
+            <span class="editing-note">Vancouver, BC · May 2026 — Present</span>
+          </div>
+        </article>
+        <article class="project" aria-labelledby="project-two">
+          <span class="project-number" aria-hidden="true">02</span>
+          <div>
+            <h3 id="project-two">Nova Northshore · Solo Developer</h3>
+            <p>A cloud-hosted event platform I built and operate independently, with Stripe payments, SMS authentication, serverless Node.js functions, React, and automated backend workflows.</p>
+            <a class="editing-note" href="https://novanorthshore.com" target="_blank" rel="noopener noreferrer">novanorthshore.com ↗</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="work paper" id="projects" aria-labelledby="projects-title">
+        <div class="section-heading">
+          <h2 id="projects-title">Personal projects</h2>
+          <span class="eyebrow">01 — 02</span>
+        </div>
+        <article class="project" aria-labelledby="project-three">
+          <span class="project-number" aria-hidden="true">01</span>
+          <div>
+            <h3 id="project-three">Apollo · distributed job scheduling</h3>
+            <p>A Go and Python scheduler that dispatches concurrent workloads across containerized workers with health checks, retries, worker reassignment, and Prometheus and Grafana instrumentation.</p>
+            <a class="editing-note" href="https://github.com/tm1944/Apollo-v2" target="_blank" rel="noopener noreferrer">github.com/tm1944/Apollo-v2 ↗</a>
+          </div>
+        </article>
+        <article class="project" aria-labelledby="project-four">
+          <span class="project-number" aria-hidden="true">02</span>
+          <div>
+            <h3 id="project-four">Real-time financial fraud pipeline</h3>
+            <p>A Kafka and Spring Boot streaming pipeline with resilient retries, dead-letter queues, ONNX Runtime inference, and Prometheus and Grafana monitoring.</p>
+            <a class="editing-note" href="https://github.com/tm1944/realtime-ml-fraud-detector" target="_blank" rel="noopener noreferrer">github.com/tm1944/realtime-ml-fraud-detector ↗</a>
+          </div>
+        </article>
+      </section>
+
+      <section class="contact paper" id="contact" aria-labelledby="contact-title">
+        <h2 id="contact-title">Say hello.</h2>
+        <p>I’m always glad to talk about systems, infrastructure, and thoughtful software.</p>
+        <ul class="contact-list" aria-label="Contact details">
+          <li><span>Email</span><a class="editing-note" href="mailto:tallalmohar@outlook.com" target="_blank" rel="noopener noreferrer">tallalmohar@outlook.com</a></li>
+          <li><span>LinkedIn</span><a class="editing-note" href="https://www.linkedin.com/in/tallalmohar/" target="_blank" rel="noopener noreferrer">linkedin.com/in/tallalmohar ↗</a></li>
+          <li><span>GitHub</span><a class="editing-note" href="https://github.com/tm1944" target="_blank" rel="noopener noreferrer">github.com/tm1944 ↗</a></li>
+        </ul>
+      </section>
+
+      <footer class="page-footer paper">
+        <span class="eyebrow">A work in progress.</span>
+        <a href="#top">Back to top <span aria-hidden="true">↑</span></a>
+      </footer>
+    </main>
   </body>
 </html>
