@@ -22,14 +22,20 @@ The two particle effects add about two seconds to each cycle. The runtime
 asset has no audio.
 
 After the final video frame, the fish's actual binary glyphs burst outward
-for one second. They keep their shading, remain upright, and become
-transparent near the end. Only when every outgoing particle is invisible
-does the recording return to its starting frame.
+for one second. Those particles stay visible, then travel along gentle curves
+for one second to form the next fish at its original starting position.
+There is no blank gap or separate incoming cloud. The first appearance still
+uses the original scattered-digit assembly.
 
-The opening frame stays paused while scattered digits gather into its exact
-silhouette for one second. Swimming begins when assembly finishes. The same
-assembly happens on initial loading. The recorded path repeats, without
-portal masking, reversed footage, or added swimming motion.
+The opening pose is cached during initial loading. Playback seeks to that
+frame during the burst and stays paused while particles gather. If decoding
+is delayed, the cloud remains visible with gentle movement until it is ready.
+Swimming begins when the particles have reached the opening silhouette.
+
+The final pose has more glyphs than the opening pose. Surplus particles merge
+into shared destinations with combined opacity, avoiding dark clumps. Their
+values and shading settle into the opening frame before playback resumes.
+The recorded path repeats without added swimming motion.
 
 Stable bounds fit the fish's complete recorded path without following it.
 The swimming area is capped at 1,280 pixels wide and fits within 90% of
@@ -43,7 +49,9 @@ The canvas remains fixed behind scrollable `main`, ignores pointer input, and
 is hidden from assistive technologies. No foreground content is included.
 `BinaryFish` retains `resize()`, `play()`, `pause()`, `showPoster()`, and
 `dispose()`. Hidden tabs pause decoding, particles, and digit timing. Resizing
-preserves particle progress relative to the swimming area. Reduced motion,
+preserves particle positions, identities, and progress while remapping their
+destinations. Any extra particles needed for a larger layout originate from
+existing particles. Reduced motion,
 direct-file previews, and playback failure use a centered clownfish still.
 
 ## Reproduce the clownfish assets

@@ -17,6 +17,11 @@
       this.fineContext = this.fineCanvas.getContext('2d', { willReadFrequently: true });
       this.decodedCanvas = document.createElement('canvas');
       this.decodedContext = this.decodedCanvas.getContext('2d');
+      this.openingCanvas = document.createElement('canvas');
+      this.outgoingFrameCanvas = document.createElement('canvas');
+      this.openingReady = this.openingSeekPending = false;
+      this.openingGlyphs = [];
+      this.nextParticleId = this.waitElapsed = 0;
       this.mode = this.state = this.phase = 'poster';
       this.disposed = this.wantsPlayback = this.hasDecodedFrame = this.restarting = false;
       this.generation = this.passCount = this.bitTime = this.mediaTime = this.poseRevision = 0;
@@ -38,6 +43,10 @@
 
     resize(width, height, pixelRatio = 1) {
       if (this.disposed) return;
+      const connected = ['exploding','waiting-opening','reforming'].includes(this.phase);
+      const oldLayout = connected ? this.layout() : null;
+      const oldWidth = this.width, oldHeight = this.height;
+      const poses = connected ? this.particles.map(p => ({...this.particlePose(p),...this.particleVelocity(p)})) : null;
       this.width = Math.max(1, width); this.height = Math.max(1, height);
       this.pixelRatio = clamp(pixelRatio, 1, 2);
       this.canvas.width = Math.round(this.width * this.pixelRatio);
@@ -47,11 +56,14 @@
       this.cellWidth = this.fontSize * .62; this.cellHeight = this.fontSize * 1.02;
       this.targetFish = Math.min(this.options.fishSize, this.width * .90);
       this.layoutRevision = (this.layoutRevision || 0)+1;
-      if (this.hasDecodedFrame && (this.phase === 'assembling' || this.phase === 'exploding'
+      if (connected) {
+        this.resizeConnectedParticles(poses,oldLayout,oldWidth,oldHeight);
+      } else if (this.hasDecodedFrame && (this.phase === 'assembling'
           || (this.phase === 'swimming' && this.handoffFrame === this.frameAt(this.decodedTime)))) {
         // Keep six-pixel density after a large resize. The held source pose,
         // transition clock, and progress remain unchanged while targets regrid.
-        this.captureParticles();
+        if (this.phase === 'assembling') this.captureParticles();
+        else this.handoffGlyphs = this.sampleGlyphs(this.openingCanvas);
       }
       this.renderCurrent();
     }
@@ -128,7 +140,8 @@
         const angle = Math.atan2(p.targetY-cy,p.targetX-cx)+(s-.5)*.8;
         const distance = this.particleFishWidth*.5*(.4+.6*r);
         const dx = Math.cos(angle)*distance, dy = Math.sin(angle)*distance;
-        return Object.assign(p,{ dx,dy,sourceX:p.targetX+dx,sourceY:p.targetY+dy,
+        const id = ++this.nextParticleId;
+        return Object.assign(p,{ id,rootId:id, dx,dy,sourceX:p.targetX+dx,sourceY:p.targetY+dy,
           fadeStart:.58+.20*s, fadeEnd:.88+.12*r, entryDelay:.08*s, entryEnd:.15+.13*r });
       });
       this.particleCount = this.particles.length;
@@ -136,12 +149,152 @@
 
     particlePose(p, progress = this.transitionProgress, phase = this.phase) {
       const q = clamp(progress,0,1);
+      if (phase === 'swimming') return p.destinationX !== undefined
+        ? {x:p.destinationX,y:p.destinationY,alpha:p.targetOpacityShare,seed:p.targetSeed}
+        : {x:p.targetX,y:p.targetY,alpha:p.opacity,seed:p.seed};
+      if (phase === 'exploding') {
+        const u = clamp((q-(p.burstSegmentStart || 0))/(1-(p.burstSegmentStart || 0)),0,1);
+        const e = 1-Math.pow(1-u,3);
+        return { x:p.burstStartX+(p.burstEndX-p.burstStartX)*e,
+          y:p.burstStartY+(p.burstEndY-p.burstStartY)*e, alpha:p.currentOpacity, seed:p.segmentSeed };
+      }
+      if (phase === 'waiting-opening') {
+        const w = this.waitElapsed;
+        const sway = (1-Math.cos(w*1.1))*.5;
+        const point = this.constrainPoint(p.waitX+p.driftX*sway,p.waitY+p.driftY*sway);
+        return { ...point,alpha:p.currentOpacity,seed:p.segmentSeed };
+      }
+      if (phase === 'reforming') {
+        const u = clamp((q-(p.reformSegmentStart || 0))/(1-(p.reformSegmentStart || 0)),0,1);
+        const v = 1-u;
+        const weights = [v**4,4*v**3*u,6*v*v*u*u,4*v*u**3,u**4];
+        const x = weights[0]*p.pathStartX+weights[1]*p.control1X+weights[2]*p.control2X
+          +(weights[3]+weights[4])*p.destinationX;
+        const y = weights[0]*p.pathStartY+weights[1]*p.control1Y+weights[2]*p.control2Y
+          +(weights[3]+weights[4])*p.destinationY;
+        const blend = u*u*(3-2*u);
+        return { x,y,alpha:p.currentOpacity*(1-blend)+p.targetOpacityShare*blend,
+          seed:u > .25+(p.id%97)/194 ? p.targetSeed : p.segmentSeed };
+      }
       const assembling = phase === 'assembling';
       const displacement = assembling ? Math.pow(1-q,3) : 1-Math.pow(1-q,3);
       const alpha = assembling
         ? clamp((q-p.entryDelay)/(p.entryEnd-p.entryDelay),0,1)
         : 1-clamp((q-p.fadeStart)/(p.fadeEnd-p.fadeStart),0,1);
-      return { x:p.targetX+p.dx*displacement, y:p.targetY+p.dy*displacement, alpha:p.opacity*alpha };
+      return { x:p.targetX+p.dx*displacement, y:p.targetY+p.dy*displacement, alpha:p.opacity*alpha,seed:p.seed };
+    }
+
+    constrainPoint(x,y) {
+      const l = this.layout();
+      const marginX = this.cellWidth/2+1, marginY = this.cellHeight/2+1;
+      return { x:clamp(x,l.x0+(marginX-l.originX)/l.scale,l.x0+(this.width-marginX-l.originX)/l.scale),
+        y:clamp(y,l.y0+(marginY-l.originY)/l.scale,l.y0+(this.height-marginY-l.originY)/l.scale) };
+    }
+
+    burstEndpoint(x,y,dx,dy,seed) {
+      const l = this.layout();
+      const marginX = this.cellWidth/2+1, marginY = this.cellHeight/2+1;
+      const left = l.x0+(marginX-l.originX)/l.scale, right = l.x0+(this.width-marginX-l.originX)/l.scale;
+      const top = l.y0+(marginY-l.originY)/l.scale, bottom = l.y0+(this.height-marginY-l.originY)/l.scale;
+      const tx = dx > 0 ? (right-x)/dx : dx < 0 ? (left-x)/dx : Infinity;
+      const ty = dy > 0 ? (bottom-y)/dy : dy < 0 ? (top-y)/dy : Infinity;
+      const room = Math.max(0,Math.min(tx,ty));
+      // Compress the distance along its original ray. Varied soft capacity
+      // prevents unrelated particles from piling onto a clamped screen edge.
+      const capacity = room*(.58+.30*(seed%101)/100);
+      const factor = Number.isFinite(capacity) ? capacity/(1+capacity) : 1;
+      return {x:x+dx*factor,y:y+dy*factor};
+    }
+
+    particleVelocity(p) {
+      if (this.phase === 'waiting-opening') return {
+        vx:p.driftX*.55*Math.sin(this.waitElapsed*1.1), vy:p.driftY*.55*Math.sin(this.waitElapsed*1.1) };
+      const q = this.transitionProgress, next = Math.min(1,q+.0001);
+      if (next === q) return {vx:0,vy:0};
+      const a = this.particlePose(p,q), b = this.particlePose(p,next);
+      const dt = (next-q)*this.transitionDuration();
+      return {vx:(b.x-a.x)/dt,vy:(b.y-a.y)/dt};
+    }
+
+    spatialKey(x,y) {
+      let a = clamp(Math.floor(x/data.width*1023),0,1023), b = clamp(Math.floor(y/data.height*1023),0,1023);
+      let result = 0;
+      for (let bit = 0; bit < 10; bit++) result |= ((a>>bit)&1)<<(bit*2) | ((b>>bit)&1)<<(bit*2+1);
+      return result;
+    }
+
+    mapOpeningTargets(poses) {
+      this.openingGlyphs = this.sampleGlyphs(this.openingCanvas);
+      const originalCount = this.particles.length;
+      const copies = new Array(originalCount).fill(1);
+      for (let i = originalCount; i < this.openingGlyphs.length; i++) copies[(i-originalCount)%originalCount]++;
+      const initialParticles = this.particles.slice();
+      for (let i = 0; i < originalCount; i++) {
+        const original = initialParticles[i], pose = poses[i];
+        const share = 1-Math.pow(1-pose.alpha,1/copies[i]);
+        original.currentOpacity = share; original.segmentSeed = pose.seed;
+        original.currentX = pose.x; original.currentY = pose.y;
+        original.currentVx = pose.vx || 0; original.currentVy = pose.vy || 0;
+        for (let n = 1; n < copies[i]; n++) {
+          const child = { ...original,id:++this.nextParticleId,rootId:original.rootId,parentId:original.id };
+          this.particles.push(child);
+        }
+      }
+      const ordered = this.particles.slice().sort((a,b) =>
+        this.spatialKey(a.currentX,a.currentY)-this.spatialKey(b.currentX,b.currentY) || a.id-b.id);
+      const targets = this.openingGlyphs.map((g,index) => ({...g,index})).sort((a,b) =>
+        this.spatialKey(a.targetX,a.targetY)-this.spatialKey(b.targetX,b.targetY));
+      const groups = targets.map(() => []);
+      for (let i = 0; i < ordered.length; i++) groups[Math.floor(i*targets.length/ordered.length)].push(ordered[i]);
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i], group = groups[i];
+        for (const p of group) {
+          p.groupId = target.index; p.groupSize = group.length;
+          p.destinationX = target.targetX; p.destinationY = target.targetY;
+          p.targetSeed = target.seed; p.targetOpacity = target.opacity;
+          p.targetOpacityShare = 1-Math.pow(1-target.opacity,1/group.length);
+        }
+      }
+      this.particleCount = this.particles.length;
+    }
+
+    setReformPaths(poses, segmentStart = 0) {
+      for (let i = 0; i < this.particles.length; i++) {
+        const p = this.particles[i], pose = poses[i] || {x:p.currentX,y:p.currentY,
+          alpha:p.currentOpacity,seed:p.segmentSeed,vx:p.currentVx,vy:p.currentVy};
+        p.pathStartX = pose.x; p.pathStartY = pose.y;
+        p.currentOpacity = pose.alpha; p.segmentSeed = pose.seed;
+        const remaining = (1-segmentStart)*this.transitionDuration();
+        const tangent = this.constrainPoint(pose.x+(pose.vx || 0)*remaining/4,pose.y+(pose.vy || 0)*remaining/4);
+        p.control1X = tangent.x; p.control1Y = tangent.y;
+        const dx = p.destinationX-pose.x, dy = p.destinationY-pose.y;
+        const bend = ((p.id%101)/100-.5)*.45;
+        const control = this.constrainPoint((pose.x+p.destinationX)*.5-dy*bend,(pose.y+p.destinationY)*.5+dx*bend);
+        p.control2X = control.x; p.control2Y = control.y;
+        p.reformSegmentStart = segmentStart;
+      }
+    }
+
+    resizeConnectedParticles(poses,old,oldWidth,oldHeight) {
+      const l = this.layout();
+      const remap = point => this.constrainPoint(
+        l.x0+(((old.originX+(point.x-old.x0)*old.scale)/oldWidth)*this.width-l.originX)/l.scale,
+        l.y0+(((old.originY+(point.y-old.y0)*old.scale)/oldHeight)*this.height-l.originY)/l.scale);
+      const factorX = old.scale/l.scale*this.width/oldWidth, factorY = old.scale/l.scale*this.height/oldHeight;
+      const mapped = poses.map(p => ({...p,...remap(p),vx:p.vx*factorX,vy:p.vy*factorY}));
+      const ends = this.particles.map(p => remap({x:p.burstEndX,y:p.burstEndY}));
+      this.mapOpeningTargets(mapped);
+      if (this.phase === 'reforming') this.setReformPaths([],this.transitionProgress);
+      else for (let i = 0; i < this.particles.length; i++) {
+        const p = this.particles[i];
+        const pose = {x:p.currentX,y:p.currentY};
+        const end = ends[i] || this.burstEndpoint(pose.x,pose.y,p.dx*.12,p.dy*.12,p.id);
+        p.burstStartX = pose.x; p.burstStartY = pose.y;
+        p.burstEndX = end.x; p.burstEndY = end.y; p.burstSegmentStart = this.transitionProgress;
+        p.driftX = (p.driftX || 0)*factorX; p.driftY = (p.driftY || 0)*factorY;
+        const sway = (1-Math.cos(this.waitElapsed*1.1))*.5;
+        p.waitX = pose.x-(p.driftX || 0)*sway; p.waitY = pose.y-(p.driftY || 0)*sway;
+      }
     }
 
     paintGlyphs(glyphs, particles = false, poster = false) {
@@ -151,19 +304,41 @@
       ctx.font = `500 ${this.fontSize}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
-      for (const p of glyphs) {
-        const pose = particles ? this.particlePose(p) : { x:p.targetX,y:p.targetY,alpha:p.opacity };
-        if (pose.alpha < .04) continue;
+      const connected = particles && this.phase !== 'assembling';
+      const entries = connected ? new Map() : null;
+      const paint = (pose,seed) => {
+        if (pose.alpha < (connected?.0001:.04)) return;
         const x = l.originX+(pose.x-l.x0)*l.scale, y = l.originY+(pose.y-l.y0)*l.scale;
-        const tick = Math.floor((poster?0:this.bitTime)*(1.6+p.seed%2*.4)+p.seed%97/97);
-        let hash = (p.seed^Math.imul(tick+1,1274126177))>>>0;
+        const tick = Math.floor((poster?0:this.bitTime)*(1.6+seed%2*.4)+seed%97/97);
+        let hash = (seed^Math.imul(tick+1,1274126177))>>>0;
         hash = Math.imul(hash^hash>>>13,1274126177);
         ctx.globalAlpha = pose.alpha;
         ctx.fillText(((hash^hash>>>16)&1)?'1':'0',x,y);
         this.drawnGlyphs++;
         left = Math.min(left,x-this.cellWidth/2); right = Math.max(right,x+this.cellWidth/2);
         top = Math.min(top,y-this.cellHeight/2); bottom = Math.max(bottom,y+this.cellHeight/2);
+      };
+      for (const p of glyphs) {
+        const pose = particles ? this.particlePose(p) : { x:p.targetX,y:p.targetY,alpha:p.opacity,seed:p.seed };
+        if (!connected) paint(pose,pose.seed);
+        else {
+          // Split descendants and merged destinations can coincide exactly.
+          // Composite their opacity once, keeping antialiased glyph edges clean.
+          const converged = this.phase === 'reforming' && this.transitionProgress > .8
+            && Math.hypot(pose.x-p.destinationX,pose.y-p.destinationY)*l.scale < .15;
+          const key = converged ? `destination:${p.groupId}`
+            : `${Math.round(pose.x*10000)},${Math.round(pose.y*10000)},${pose.seed}`;
+          const previous = entries.get(key);
+          if (previous) {
+            const weight = previous.weight+pose.alpha;
+            previous.x = (previous.x*previous.weight+pose.x*pose.alpha)/weight;
+            previous.y = (previous.y*previous.weight+pose.y*pose.alpha)/weight;
+            previous.weight = weight;
+            previous.alpha = 1-(1-previous.alpha)*(1-pose.alpha);
+          } else entries.set(key,{...pose,weight:pose.alpha});
+        }
       }
+      if (entries) for (const pose of entries.values()) paint(pose,pose.seed);
       ctx.globalAlpha = 1;
       if (this.drawnGlyphs) this.bounds = { left,top,right,bottom };
     }
@@ -174,11 +349,12 @@
         if (this.mode === 'poster') {
           if (this.poster.complete && this.poster.naturalWidth) this.paintGlyphs(this.sampleGlyphs(this.poster,true),false,true);
           else this.clear();
-        } else if (this.phase === 'assembling' || this.phase === 'exploding') {
-          this.paintGlyphs(this.particles,true);
+        } else if (['assembling','exploding','waiting-opening','reforming'].includes(this.phase)) {
+          if (this.phase === 'reforming' && this.transitionProgress >= 1) this.paintGlyphs(this.openingGlyphs);
+          else this.paintGlyphs(this.particles,true);
         } else if (this.phase === 'swimming' && this.hasDecodedFrame) {
           // Retain the assembled grid until the footage actually advances.
-          if (this.handoffFrame === this.frameAt(this.decodedTime)) this.paintGlyphs(this.particles);
+          if (this.handoffFrame === this.frameAt(this.decodedTime)) this.paintGlyphs(this.handoffGlyphs || this.particles);
           else {
             if (this.glyphCacheRevision !== this.poseRevision || this.glyphCacheLayout !== this.layoutRevision) {
               this.glyphCache = this.sampleGlyphs(this.decodedCanvas);
@@ -302,16 +478,15 @@
       });
     }
 
-    async loadOpening(restart) {
+    async loadOpening() {
       const generation = this.generation;
-      this.phase = restart ? 'hidden-restart' : 'loading';
-      this.restarting = restart;
+      this.phase = 'loading';
       this.clear();
       const ready = await this.decodeHeldFrame(0);
       if (generation !== this.generation || !this.wantsPlayback || this.disposed) return false;
       if (!ready) { this.fail(); return false; }
-      this.restarting = false;
-      if (restart) this.passCount++;
+      this.copyFrame(this.decodedCanvas,this.openingCanvas);
+      this.openingReady = true;
       this.beginTransition('assembling');
       return true;
     }
@@ -319,18 +494,70 @@
     beginTransition(phase) {
       this.video.pause(); this.cancelDecode();
       this.captureParticles();
+      if (phase === 'exploding') {
+        this.copyFrame(this.decodedCanvas,this.outgoingFrameCanvas);
+        for (const p of this.particles) {
+          const end = this.burstEndpoint(p.targetX,p.targetY,p.dx,p.dy,p.seed);
+          p.burstStartX = p.targetX; p.burstStartY = p.targetY;
+          p.burstEndX = end.x; p.burstEndY = end.y; p.burstSegmentStart = 0;
+          p.currentOpacity = p.opacity; p.segmentSeed = p.seed;
+        }
+        this.mapOpeningTargets(this.particles.map(p => ({x:p.targetX,y:p.targetY,alpha:p.opacity,seed:p.seed})));
+        this.openingReady = false;
+      }
       this.phase = phase;
       this.transitionElapsed = this.transitionProgress = 0;
       this.lastClock = null;
       this.state = 'playing'; this.mode = 'video';
       this.renderCurrent(); this.schedule();
+      if (phase === 'exploding') this.prepareNextOpening();
+    }
+
+    copyFrame(source,destination) {
+      destination.width = source.width; destination.height = source.height;
+      destination.getContext('2d').drawImage(source,0,0);
+    }
+
+    async prepareNextOpening() {
+      if (this.openingSeekPending || this.openingReady || !this.wantsPlayback) return;
+      const generation = this.generation;
+      this.openingSeekPending = true;
+      const ready = await this.decodeHeldFrame(0);
+      if (generation !== this.generation || !this.wantsPlayback || this.disposed) return;
+      this.openingSeekPending = false;
+      if (!ready) { this.fail(); return; }
+      this.openingReady = true;
+      if (this.phase === 'waiting-opening') this.beginReforming();
+    }
+
+    beginReforming() {
+      const poses = this.particles.map(p => ({...this.particlePose(p),...this.particleVelocity(p)}));
+      this.setReformPaths(poses);
+      this.phase = 'reforming';
+      this.transitionElapsed = this.transitionProgress = 0;
+      this.lastClock = null;
+      this.renderCurrent(); this.schedule();
+    }
+
+    finishBurst() {
+      if (this.openingReady) { this.beginReforming(); return; }
+      const l = this.layout();
+      for (const p of this.particles) {
+        p.waitX = p.burstEndX; p.waitY = p.burstEndY;
+        const angle = p.id*2.39996323;
+        p.driftX = Math.cos(angle)*8/l.scale;
+        p.driftY = Math.sin(angle)*8/l.scale;
+      }
+      this.phase = 'waiting-opening'; this.waitElapsed = 0;
+      this.renderCurrent();
     }
 
     async startSwimming() {
       const generation = this.generation, video = this.video;
-      if (this.phase === 'assembling') {
+      if (this.phase === 'assembling' || this.phase === 'reforming') {
         this.handoffFrame = this.frameAt(this.decodedTime);
         this.handoffRevision = this.poseRevision;
+        this.handoffGlyphs = this.phase === 'assembling' ? this.particles : this.openingGlyphs;
       }
       this.phase = 'swimming'; this.state = 'playing';
       video.playbackRate = this.swimRate();
@@ -370,14 +597,15 @@
       this.wantsPlayback = true; this.generation++;
       if (!this.video) this.createVideo();
       this.mode = 'video'; this.state = 'playing'; this.lastClock = null;
-      if (this.phase === 'assembling' || this.phase === 'exploding') {
+      if (['assembling','exploding','waiting-opening','reforming'].includes(this.phase)) {
+        if (this.phase !== 'assembling' && !this.openingReady) this.prepareNextOpening();
         this.schedule(); return true;
       }
       if (this.phase === 'swimming') {
         if (this.video.ended) { this.finishSwimming(); this.schedule(); return true; }
         return this.startSwimming();
       }
-      return this.loadOpening(this.phase === 'hidden-restart' || this.restarting);
+      return this.loadOpening();
     }
 
     schedule() {
@@ -388,17 +616,18 @@
         if (document.hidden) { this.pause(); return; }
         const dt = this.lastClock === null ? 0 : Math.max(0,(now-this.lastClock)/1000);
         this.lastClock = now; this.bitTime += dt;
-        if (this.phase === 'assembling' || this.phase === 'exploding') {
+        if (['assembling','exploding','reforming'].includes(this.phase)) {
           this.transitionElapsed = Math.min(this.transitionDuration(),this.transitionElapsed+dt);
           this.transitionProgress = this.transitionElapsed/this.transitionDuration();
           this.renderCurrent();
           if (this.transitionProgress >= 1) {
             if (this.phase === 'assembling') this.startSwimming();
-            else {
-              this.glyphsBeforeRestart = this.drawnGlyphs;
-              this.phase = 'hidden-restart'; this.clear(); this.loadOpening(true);
-            }
+            else if (this.phase === 'exploding') this.finishBurst();
+            else { this.passCount++; this.startSwimming(); }
           }
+        } else if (this.phase === 'waiting-opening') {
+          this.waitElapsed += dt;
+          this.renderCurrent();
         } else if (this.phase === 'swimming') {
           if (!this.video.requestVideoFrameCallback && !this.video.seeking && !this.video.paused) {
             this.acceptFrame(this.video.currentTime);
@@ -419,6 +648,7 @@
       this.wantsPlayback = false; this.generation++;
       if (this.video) this.video.pause();
       if (this.cancelSeek) this.cancelSeek();
+      this.openingSeekPending = false;
       this.stopFrame();
       if (!this.disposed && this.state !== 'poster' && this.state !== 'error') this.state = 'paused';
     }
@@ -445,7 +675,10 @@
       }
       this.fineCanvas.width = this.fineCanvas.height = 0;
       this.decodedCanvas.width = this.decodedCanvas.height = 0;
+      this.openingCanvas.width = this.openingCanvas.height = 0;
+      this.outgoingFrameCanvas.width = this.outgoingFrameCanvas.height = 0;
       this.particles = []; this.particleCount = 0;
+      this.openingGlyphs = []; this.handoffGlyphs = null;
       this.glyphCache = null;
       this.clear(); this.state = 'disposed';
     }
