@@ -89,7 +89,9 @@ not been tested. Visibility and BFCache events are simulated rather than
 actual OS backgrounding and browser history restoration. Source-edge fin
 cropping remains exactly as recorded. No deployment or domain changes were
 made. The September 5 updates (direct recorded mapping, explode/reconstruct
-reset loop, two-tone stripe markings, hero without backing fade) passed the
-Node placement suite and syntax/`git diff --check` gates here; the
+reset loop, two-tone stripe markings, hero without backing fade, dark theme
+with fish recolor) passed the Node placement suite, a headless theme-wiring
+suite (OS init, toggle, persistence, OS follow, fish-failure and
+storage-denied paths), and syntax/`git diff --check` gates here; the
 Playwright browser suite, including the two-tone parity comparison and the
 three-loop observation, still needs a re-run where Playwright is installed.

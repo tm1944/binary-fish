@@ -19,9 +19,13 @@ The existing static hosting setup and `CNAME` remain unchanged.
 ## Editing the portfolio
 
 `index.html` contains the biography, experience, projects, and contact links.
-`style.css` defines the responsive editorial layout, colors, and typography.
-Project illustrations use HTML and CSS. The fixed background canvas never
-intercepts pointer input or uses scrolling to drive the fish.
+`style.css` defines the responsive editorial layout, colors, and typography,
+with a `data-theme="dark"` palette alongside the default light one. The
+header theme toggle persists to `localStorage` and otherwise follows the OS
+color scheme; switching themes also recolors the fish (bright periwinkle on
+dark so it stays readable) and the `theme-color` meta tag.
+The fixed background canvas never intercepts pointer input or uses scrolling
+to drive the fish.
 
 The footer pause control freezes the recorded pose and its glide.
 Reduced motion shows the original binary poster instead. Hidden pages pause
