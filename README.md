@@ -1,71 +1,100 @@
-# A personal page in blue ink
+# Tallal Mohar's portfolio
 
-A centered personal page with a fixed binary clownfish behind it. Original
-footage supplies every pose, turn, body shadow, and fin movement. The content
-panels use an 88% white veil, so violet digits show through softly.
+A static personal website in warm white and indigo. The background shows the
+original recorded clownfish rendered as binary characters, swimming exactly
+as recorded. The portfolio needs no framework, build step, or remote fonts.
 
 ## Preview
 
+From the repository root:
+
 ```sh
-cd /Users/tallalmohar/Documents/Codex/2026-08-30/p/outputs/fish-site
 python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
-Open [the website](http://127.0.0.1:4173/). Opening `index.html` directly shows
-a binary still; animated video needs a local server.
+Open [the local preview](http://127.0.0.1:4173/). Opening `index.html` directly
+shows the original binary still; video playback uses the local server.
+The existing static hosting setup and `CNAME` remain unchanged.
 
-## Make it yours
+## Editing the portfolio
 
-Edit `index.html` to update the introduction, projects, and contact details as
-your work changes. The page title and meta description are near the top. The
-About, Work, Contact, and Back to top links navigate within the page.
+`index.html` contains the biography, experience, projects, and contact links.
+`style.css` defines the responsive editorial layout, colors, and typography.
+Project illustrations use HTML and CSS. The fixed background canvas never
+intercepts pointer input or uses scrolling to drive the fish.
 
-The 560-pixel column stays centered with at least 24 pixels on either side on
-phones. The canvas is a pointer-free, fixed background so content can scroll
-and remain accessible above it.
+The footer pause control freezes the recorded pose and its glide.
+Reduced motion shows the original binary poster instead. Hidden pages pause
+playback and character changes. The portfolio remains usable if JavaScript,
+Canvas, or video decoding is unavailable.
 
-## Playback and size
+## The original fish, swimming as recorded
 
-The recording contains all 335 frames at 24000/1001 frames per second, about
-13.97 seconds. It plays at 1.15× speed, so the video portion lasts about 12.15
-seconds. The complete first-frame fish starts 24 pixels beyond the right edge.
-It enters only through the movement recorded in the footage: the renderer never
-slides, recenters, chases, or holds it in place.
+`assets/fish-luma-mask.mp4` contains all 335 source frames at 24000/1001 fps.
+`assets/fish-data.js` supplies the source metadata, frame bounds, and embedded
+poster. The original video provides every silhouette, marking, body movement,
+fin movement, and turn. No 3D model, invented pose, stretching, mirroring,
+rotation, frame blending, or particle explosion is used. Only translation and
+uniform scaling place the source fish.
 
-At the final video frame, its visible binary digits burst outward for one
-second. Each particle fades fully to transparent during the burst. Only after
-the canvas is blank does the renderer seek and decode frame zero, then start
-the next pass naturally offscreen. The short blank decode interval is
-intentional. There is no incoming particle cloud or added entrance motion.
+`fish.js` preserves the original luminance/mask sampler, opacity formula,
+6-pixel characters, violet color, and staggered digit clock. Cells brighter
+than the `stripeLuma` threshold render as paper-colored (`stripeColor`)
+marking glyphs, so the clownfish white stripes and pale belly knock out of
+the violet body. Playback remains 1.15×, making each recorded pass about
+12.15 seconds plus the swim-in/out glides.
 
-Stable bounds fit the recorded path without following the fish. The swimming
-area is capped at 1,280 pixels wide and fits within 90% of viewport width and
-80% of viewport height. `main.js` configures violet `#554bc6`, upright 6-pixel
-characters, fish size, playback speed, and `transitionDuration`. Digit changes
-use a separate staggered clock from movement.
+Each pass plays the source motion 1:1 on a fixed center stage, then freezes
+the end pose and explodes it into binary particles that scatter and fade.
+While the debris clears, frame zero decodes underneath; the opening glyphs
+then stream back in and reconstruct around the same center spot before
+swimming resumes. The reset only happens through a fully exploded canvas,
+so the loop never pops. Recorded fin cropping remains wherever it exists in
+the source. Scaling is uniform and constant within a viewport, so recorded
+changes in apparent size remain intact.
 
-`BinaryFish` retains `resize()`, `play()`, `pause()`, `showPoster()`, and
-`dispose()`. Hidden tabs pause decoding, particles, and digit timing. Reduced
-motion, direct-file previews, and playback failures show a right-positioned
-clownfish still.
+## Renderer interface
 
-## Reproduce the clownfish assets
+`main.js` owns the pause control, resize observer, reduced-motion preferences,
+and page lifecycle. `BinaryFish` exposes:
 
-The original clownfish upload remains untouched at
-`preparation/source-uploaded.mp4`. Preparation generates synchronized
-luminance, soft silhouette, and anatomy-progression planes in one local video.
-The renderer uses luminance and silhouette; the third plane remains preparation
-history and does not affect playback. This update requires no asset reprocessing.
+- `resize(width, height, pixelRatio)` adjusts uniform scale and viewport
+  placement without restarting the recorded pass. Pixel ratio is capped at 2.
+- `play()` starts or resumes decoding and the swim/explode/reform loop.
+  Returns a promise.
+- `pause()` freezes the current pose and particle flight and cancels pending
+  callbacks.
+- `showPoster()` displays the original binary still at a visible location.
+- `dispose()` cancels decoding and animation and releases canvas buffers.
 
-With Python, numpy, opencv-python, ffmpeg, and ffprobe installed:
+Options are `color`, `stripeColor`, `stripeLuma`, `characterSize`, and
+`swimmingSpeed`. Defaults are `#554bc6`, `#f7f7f2`, `155`, `6`, and `1.15`;
+playback speed is clamped to 0.25–3 and the stripe threshold to 0–255.
+
+The files under `preparation/` remain unchanged as source/preparation history.
+The active packed video and its metadata are required deployment assets.
+
+## Checks
+
+The placement tests need only Node.js:
 
 ```sh
-python3 preparation/prepare_clownfish.py
 node tests/placement.cjs
+node --check fish.js
+node --check main.js
 ```
 
-The five-minute recording and its metadata remain in
-`preparation/five-minute-master/` as reference material and are not loaded by
-the website. Some fin detail was already outside the source frame and cannot be
-recovered. This remains a local preview; confirm footage reuse permission before
-publishing.
+Optional browser checks require Playwright and its Chromium browser. Start
+the local server, then run:
+
+```sh
+node tests/browser.cjs
+```
+
+`PREVIEW_URL` overrides the preview address. `CHECK_OUTPUT` changes the
+screenshot/report directory, which defaults to `/tmp/original-fish-check`.
+The browser suite compares source glyphs and canvas pixels against a frozen
+copy of the original sampler/painter (updated once for the two-tone marking
+render), observes three live explode/reconstruct loops, and checks responsive
+layouts, pause/resume, and poster fallbacks.
+See `VERIFICATION.md` for the latest results and their limits.
